@@ -1,8 +1,12 @@
+#!/usr/bin/env python3
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 import pyudev
 import os
+import subprocess
+import threading
+import time
 
 context = pyudev.Context()
 
@@ -88,9 +92,26 @@ class Window(Gtk.Window):
     
     def on_write(self, _):
         self.remove(self.vbox)
-        progress = Gtk.ProgressBar()
-        self.add(progress)
+        progress = Gtk.Spinner()
+        self.box = Gtk.Box(margin=200)
+        self.box.pack_start(progress, True, True, 0)
+        self.add(self.box)
+        progress.start()
         self.show_all()
+        file_name = self.file_name.get_text()
+        _, device_path = self.combobox_drive.get_model()[self.combobox_drive.get_active_iter()][:2]
+        thread = threading.Thread(target=self.write, args=(file_name,device_path))
+        thread.start()
+
+    def write(self, input_file, output_file):
+        print("Writing {} to {}".format(input_file, output_file))
+        process = subprocess.Popen(["pkexec", "dd", "if={}".format(input_file), "of={}".format(output_file), "bs=1M"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while process.poll() is None:
+            time.sleep(1)
+        self.remove(self.box)
+        self.add(self.vbox)
+        self.show_all()
+
 
 window = Window()
 window.connect("destroy", Gtk.main_quit)
